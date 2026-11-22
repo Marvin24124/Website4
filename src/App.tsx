@@ -1,8 +1,9 @@
-import {useState} from "react"
+import {useEffect,useState} from "react"
 import {AnimatePresence,motion} from "motion/react"
 import NumberCounter from "@/components/ui/motion-number-counter"
 import {ButtonDemo} from "@/components/ui/button-border"
 import Sortiment from "@/components/Sortiment"
+import CartDrawer from "@/components/CartDrawer"
 
 const cards=[
   {title:"Unser Service",text:"Keine Kisten mehr tragen: Wir liefern Getränke bis vor Ihre Haustür und nehmen Leergut wieder mit.",image:"/assets/service.png"},
@@ -14,15 +15,26 @@ const cards=[
 function App(){
   const [menu,setMenu]=useState(false)
   const [notice,setNotice]=useState("")
+  const [shop,setShop]=useState(()=>window.location.hash==="#/sortiment")
+  const [cartOpen,setCartOpen]=useState(false)
+  const [cart,setCart]=useState<Record<string,number>>(()=>{try{return JSON.parse(localStorage.getItem("rapp-cart")??"{}") as Record<string,number>}catch{return {}}})
+  useEffect(()=>{const sync=()=>setShop(window.location.hash==="#/sortiment");window.addEventListener("hashchange",sync);return()=>window.removeEventListener("hashchange",sync)},[])
+  useEffect(()=>{localStorage.setItem("rapp-cart",JSON.stringify(cart))},[cart])
+  const cartCount=Object.values(cart).reduce((sum,value)=>sum+value,0)
+  const changeCart=(name:string,delta:number)=>setCart(current=>{const quantity=Math.max(0,(current[name]??0)+delta);const next={...current,[name]:quantity};if(!quantity)delete next[name];return next})
+  const addToCart=(name:string)=>{changeCart(name,1);setNotice(`${name} liegt jetzt im Warenkorb.`);setTimeout(()=>setNotice(""),2200)}
+  const openShop=()=>{window.location.hash="/sortiment";setMenu(false);window.scrollTo({top:0,behavior:"smooth"})}
+  const CartButton=()=> <button onClick={()=>setCartOpen(true)} className="relative grid h-12 w-12 place-items-center rounded-full bg-[#075591] text-white" aria-label={`Warenkorb öffnen, ${cartCount} Kisten`}><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1"/><circle cx="19" cy="20" r="1"/><path d="M3 3h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 7H6"/></svg>{cartCount>0&&<span className="absolute -right-1 -top-1 grid h-6 min-w-6 place-items-center rounded-full bg-[#d31f36] px-1 text-xs font-black">{cartCount}</span>}</button>
   const order=()=>{setNotice("Ihre Auswahl wurde vorgemerkt.");setTimeout(()=>setNotice(""),2800)}
+  if(shop)return <div className="min-h-screen bg-[#edf5f8] text-[#062e4d]"><header className="sticky top-0 z-50 border-b border-[#075591]/10 bg-[#f5f3ed]/95 backdrop-blur-xl"><div className="mx-auto flex h-24 max-w-[1440px] items-center justify-between px-5 md:px-10"><button onClick={()=>{window.location.hash="";window.scrollTo(0,0)}} className="flex items-center gap-2 font-black text-[#075591]" aria-label="Zurück zur Startseite"><span className="grid h-11 w-11 place-items-center rounded-full border border-[#075591]/20 text-xl">‹</span><span className="hidden sm:inline">Startseite</span></button><button onClick={()=>{window.location.hash="";window.scrollTo(0,0)}}><img src="/assets/rapp-logo.png" alt="RAPP" className="h-16 w-auto"/></button><CartButton/></div></header><main><div className="bg-[#075591] px-5 py-10 text-center text-white"><p className="text-sm font-black uppercase tracking-[.2em] text-[#f6c53b]">RAPP Getränkemarkt</p><h1 className="mt-3 text-4xl font-black uppercase md:text-6xl">Getränke auswählen</h1></div><Sortiment cart={cart} onAdd={addToCart} onOpenCart={()=>setCartOpen(true)}/></main><CartDrawer open={cartOpen} cart={cart} onClose={()=>setCartOpen(false)} onChange={changeCart}/><AnimatePresence>{notice&&<motion.div initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} exit={{opacity:0,y:30}} className="fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 rounded-full bg-[#062e4d] px-6 py-4 text-center font-bold text-white shadow-2xl">{notice}</motion.div>}</AnimatePresence></div>
   return <div className="min-h-screen bg-[#f5f3ed] text-[#062e4d]">
     <header className="sticky top-0 z-50 border-b border-[#075591]/10 bg-[#f5f3ed]/95 backdrop-blur-xl">
       <div className="mx-auto flex h-24 max-w-[1440px] items-center justify-between px-5 md:px-10">
         <button onClick={()=>setMenu(!menu)} className="grid h-12 w-12 place-items-center rounded-full border border-[#075591]/20" aria-label="Menü öffnen"><span className="text-2xl">{menu?"×":"☰"}</span></button>
         <a href="#start"><img src="/assets/rapp-logo.png" alt="RAPP" className="h-16 w-auto"/></a>
-        <div className="flex items-center gap-3"><a href="tel:08007277000" className="hidden text-sm font-bold lg:block">0800 7277000</a><div className="rounded-full bg-[#075591]"><ButtonDemo label="Bestellen" onClick={order}/></div></div>
+        <div className="flex items-center gap-3"><a href="tel:08007277000" className="hidden text-sm font-bold lg:block">0800 7277000</a><CartButton/><div className="hidden rounded-full bg-[#075591] sm:block"><ButtonDemo label="Sortiment" onClick={openShop}/></div></div>
       </div>
-      <AnimatePresence>{menu&&<motion.nav initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} className="overflow-hidden border-t border-[#075591]/10 bg-white"><div className="mx-auto grid max-w-[1440px] gap-5 px-6 py-7 text-xl font-bold md:grid-cols-5 md:px-10"><a href="#service" onClick={()=>setMenu(false)}>Service</a><a href="#sortiment" onClick={()=>setMenu(false)}>Sortiment</a><a href="#bestellen" onClick={()=>setMenu(false)}>Bestellung</a><a href="#welt" onClick={()=>setMenu(false)}>RAPP-Welt</a><a href="#kontakt" onClick={()=>setMenu(false)}>Kontakt</a></div></motion.nav>}</AnimatePresence>
+      <AnimatePresence>{menu&&<motion.nav initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} className="overflow-hidden border-t border-[#075591]/10 bg-white"><div className="mx-auto grid max-w-[1440px] gap-5 px-6 py-7 text-xl font-bold md:grid-cols-5 md:px-10"><a href="#service" onClick={()=>setMenu(false)}>Service</a><button className="text-left" onClick={openShop}>Sortiment</button><a href="#bestellen" onClick={()=>setMenu(false)}>Bestellung</a><a href="#welt" onClick={()=>setMenu(false)}>RAPP-Welt</a><a href="#kontakt" onClick={()=>setMenu(false)}>Kontakt</a></div></motion.nav>}</AnimatePresence>
     </header>
 
     <main id="start">
@@ -55,15 +67,14 @@ function App(){
         </div>
       </section>
 
-      <Sortiment onNotice={message=>{setNotice(message);setTimeout(()=>setNotice(""),2800)}}/>
-
       <section id="bestellen" className="overflow-hidden bg-[#f6c53b] py-24 md:py-32"><div className="mx-auto grid max-w-[1240px] items-center gap-12 px-5 md:px-10 lg:grid-cols-2"><div><p className="eyebrow !text-[#075591]">Einfach ausprobieren</p><h2 className="headline mt-5">Wie viele Kisten dürfen wir bringen?</h2><p className="mt-6 max-w-xl text-lg leading-8 text-[#254b65]">Stellen Sie Ihre Liefermenge ein. Die Demo zeigt, wie einfach eine Bestellung im neuen Auftritt funktionieren kann.</p><div className="mt-9 flex flex-wrap items-center gap-5"><NumberCounter min={1} max={12}/><button onClick={order} className="h-14 rounded-full bg-[#d31f36] px-7 font-extrabold text-white shadow-lg transition hover:-translate-y-1">Auswahl vormerken</button></div></div><div className="relative min-h-[420px]"><div className="absolute inset-0 rotate-3 rounded-[3rem] bg-[#075591]"/><img src="/assets/fahrer.png" alt="RAPP Fahrer bei der Getränkelieferung" className="absolute inset-0 h-full w-full object-contain object-bottom drop-shadow-2xl"/></div></div></section>
 
-      <section id="welt" className="bg-[#062e4d] py-20 text-white"><div className="mx-auto grid max-w-[1440px] gap-px overflow-hidden rounded-[2rem] bg-white/15 md:grid-cols-4">{[["Sortiment","Alle Getränke im Überblick","#sortiment"],["Liefergebiet","Werden Sie von RAPP beliefert?","#kontakt"],["Mehrwegsystem","Nachhaltig im Kreislauf","#kontakt"],["Gutschein","RAPP frei Haus verschenken","#kontakt"]].map(([title,text,href])=><a href={href} key={title} className="group bg-[#062e4d] p-8 transition hover:bg-[#075591] md:p-10"><span className="text-xs font-bold uppercase tracking-[.2em] text-[#f6c53b]">Auf einen Blick</span><h3 className="mt-10 text-2xl font-black">{title}</h3><p className="mt-3 text-white/65">{text}</p><span className="mt-10 block h-10 w-10 rounded-full border border-white/30 text-center text-2xl leading-9 transition group-hover:bg-white group-hover:text-[#075591]">+</span></a>)}</div></section>
+      <section id="welt" className="bg-[#062e4d] py-20 text-white"><div className="mx-auto grid max-w-[1440px] gap-px overflow-hidden rounded-[2rem] bg-white/15 md:grid-cols-4">{[["Sortiment","Alle Getränke im Überblick","#/sortiment"],["Liefergebiet","Werden Sie von RAPP beliefert?","#kontakt"],["Mehrwegsystem","Nachhaltig im Kreislauf","#kontakt"],["Gutschein","RAPP frei Haus verschenken","#kontakt"]].map(([title,text,href])=><a href={href} key={title} className="group bg-[#062e4d] p-8 transition hover:bg-[#075591] md:p-10"><span className="text-xs font-bold uppercase tracking-[.2em] text-[#f6c53b]">Auf einen Blick</span><h3 className="mt-10 text-2xl font-black">{title}</h3><p className="mt-3 text-white/65">{text}</p><span className="mt-10 block h-10 w-10 rounded-full border border-white/30 text-center text-2xl leading-9 transition group-hover:bg-white group-hover:text-[#075591]">+</span></a>)}</div></section>
     </main>
 
     <footer id="kontakt" className="bg-white"><div className="mx-auto grid max-w-[1440px] gap-12 px-5 py-20 md:grid-cols-[1.3fr_1fr_1fr] md:px-10"><div><img src="/assets/rapp-logo.png" alt="RAPP" className="h-24"/><p className="mt-7 max-w-sm leading-7 text-[#496477]">Gebr. RAPP oHG<br/>Im Rod 1<br/>64653 Lorsch</p></div><div><h3 className="font-black uppercase tracking-wider">Kontakt</h3><a className="mt-6 block text-2xl font-black text-[#075591]" href="tel:08007277000">0800 7277000</a><a className="mt-3 block" href="mailto:info@rapp.de">info@rapp.de</a></div><div><h3 className="font-black uppercase tracking-wider">Rechtliches</h3><div className="mt-6 grid gap-3 text-[#496477]"><a href="#">AGB</a><a href="#">Impressum</a><a href="#">Datenschutz</a><a href="#">Zahlungsinformationen</a></div></div></div><div className="border-t border-[#075591]/10 px-5 py-6 text-center text-sm text-[#496477]">© 2026 Gebr. RAPP oHG · Konzeptumsetzung nach öffentlicher RAPP-Referenz</div></footer>
-    <AnimatePresence>{notice&&<motion.div initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} exit={{opacity:0,y:30}} className="fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-[#062e4d] px-6 py-4 font-bold text-white shadow-2xl">{notice}</motion.div>}</AnimatePresence>
+    <CartDrawer open={cartOpen} cart={cart} onClose={()=>setCartOpen(false)} onChange={changeCart}/>
+    <AnimatePresence>{notice&&<motion.div initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} exit={{opacity:0,y:30}} className="fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 rounded-full bg-[#062e4d] px-6 py-4 font-bold text-white shadow-2xl">{notice}</motion.div>}</AnimatePresence>
   </div>
 }
 export default App
